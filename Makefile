@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Wshadow -pedantic -fdiagnostics-all-candidates -std=c++17
+CFLAGS=-Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Wshadow -pedantic -lboost_json -lboost_graph -fdiagnostics-all-candidates -std=c++17
 DFLAGS=-ggdb
 RFLAGS=-O2 -DNDEBUG -Werror
 
