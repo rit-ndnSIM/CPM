@@ -81,24 +81,76 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
                 continue;
 
             unsigned cost = close.time + topo[e].cost;
-            frontier.push_min(Branch { next, branch.intr, cost });
+            frontier.push_if_min(Branch { next, branch.intr, cost });
         }
     }
 
-    throw std::runtime_error("you fucked up dumbo haha");
+    throw std::runtime_error("not found lol");
 }
 
-void BranchQueue::push_min(Branch next) {
-    for (auto& n : c) {
-        if (n.rtr == next.rtr) {
-            if (next.time < n.time) {
-                n.time = next.time;
-                std::sort_heap(c.begin(), c.end(), std::greater<Branch>());
+std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
+    Service srv = boost::source(branch.intr, work);
+
+    BranchQueue frontier{};
+    frontier.push(branch);
+    std::set<Router> expanded{};
+    std::map<Router, Branch> prev{};
+
+    Branch close{};
+    while (!frontier.empty()) {
+        close = frontier.top();
+        frontier.pop();
+
+        if (topo[close.rtr].hosting.count(work[srv].name)) {
+            // fuck you, my ass considered harmful
+            goto found;
+        }
+
+        expanded.insert(close.rtr);
+
+        for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
+            Router next = target(e, topo);
+
+            // skip if already expanded
+            if (expanded.count(next)) 
+                continue;
+
+            unsigned cost = close.time + topo[e].cost;
+            if (frontier.push_if_min(Branch { next, branch.intr, cost })) {
+                prev[next] = close;
             }
-            return;
+        }
+    }
+
+    throw std::runtime_error("not found lol");
+
+found:
+    std::vector<Branch> path{};
+    Branch current{ close };
+
+    do {
+        path.push_back(current);
+        current = prev[current.rtr];
+    } while (current.rtr != branch.rtr);
+
+    path.push_back(current);
+
+    return std::vector(path.rbegin(), path.rend());
+}
+
+bool BranchQueue::push_if_min(Branch next) {
+    for (auto& n : c) {
+        if (n.rtr == next.rtr && n.intr == next.intr) {
+            if (next.time < n.time) {
+                n = next;
+                std::sort_heap(c.begin(), c.end(), std::greater<Branch>());
+                return true;
+            }
+            return false;
         }
     }
     this->push(next);
+    return true;
 }
 
 // i looove copy pasting code it feels so good

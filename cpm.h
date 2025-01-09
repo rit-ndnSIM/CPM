@@ -49,9 +49,9 @@ using RouterEdge = Topology::edge_descriptor;
 // branches
 
 struct Branch {
-    Router rtr;
-    ServiceEdge intr;
-    unsigned time { 0 };
+    Router rtr{};
+    ServiceEdge intr{};
+    unsigned time{ 0 };
 };
 
 inline bool operator<(const Branch& l1, const Branch& l2) {
@@ -64,7 +64,10 @@ inline bool operator>(const Branch& l1, const Branch& l2) {
 
 class BranchQueue : public std::priority_queue<Branch, std::vector<Branch>, std::greater<Branch>> {
 public:
-    void push_min(Branch next);
+    // if already present with lower priority (higher value), replaces it
+    // otherwise push normally
+    // returns true if pushed, false if not
+    bool push_if_min(Branch next);
 };
 
 unsigned 

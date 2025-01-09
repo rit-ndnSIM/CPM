@@ -40,10 +40,8 @@ def parse_topo(f):
                     raise ValueError(f"Expected {fields.len()} fields for section '{section}', got {values.len()}")
 
                 topo[section].append({field: value for field, value in zip(fields, values)})
-            case "":
-                raise ValueError(f"Unexpected line '{line}' in empty section")
             case _:
-                raise ValueError(f"Unknown section '{section}'")
+                raise ValueError(f"Unexpected line '{line}'")
 
     return topo
 
