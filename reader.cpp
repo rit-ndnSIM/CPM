@@ -35,28 +35,15 @@ json::value parse_file(const char* filename) {
 }
 
 Workflow workflow_from_file(const char* filename) {
-    // error checking
+    // error checking?
     const json::value work_json = parse_file(filename);
-    Workflow work {};
-
-    std::map<std::string, Service> desc_map{};
+    Workflow work{};
 
     const auto& work_obj = work_json.at("dag").get_object();
 
     for (const auto& pair1 : work_obj) {
-        // if name not yet grabbed
-        std::string name1 = pair1.key();
-        if (!desc_map.count(name1)) {
-            desc_map[name1] = boost::add_vertex(ServiceProperty{ name1 }, work);
-        }
-
         for (const auto& pair2 : pair1.value().get_object()) {
-            std::string name2 = pair2.key();
-            if (!desc_map.count(name2)) {
-                desc_map[name2] = boost::add_vertex(ServiceProperty{ name2 }, work);
-            }
-
-            boost::add_edge(desc_map[name1], desc_map[name2], work);
+            add_edge(std::string(pair1.key()), std::string(pair2.key()), work);
         }
     }
 

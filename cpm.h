@@ -11,24 +11,65 @@
 
 namespace CPM {
 
+// TODO: maybe not a bad idea to wrap this all in my own class 
+// probably more effort than it's worth, but the current ergonomics are kinda
+// shit
+
 // workflow
+
+struct WorkflowProperty;
+struct ServiceProperty;
+struct ServiceEdgeProperty;
+
+using Workflow = boost::adjacency_list<
+    boost::vecS, boost::vecS, boost::bidirectionalS, 
+    ServiceProperty, ServiceEdgeProperty, WorkflowProperty>;
+
+using Service = Workflow::vertex_descriptor;
+using ServiceEdge = Workflow::edge_descriptor;
+
+struct WorkflowProperty {
+    // maps names to service descriptors
+    std::map<std::string, Service> map{};
+};
 
 struct ServiceProperty {
     std::string name{};
 };
 
-struct ServiceEdgeProperty {
-    bool requested{false};
-};
+// empty, could be filled in later
+struct ServiceEdgeProperty {};
 
-using Workflow = boost::adjacency_list<
-    boost::vecS, boost::vecS, boost::bidirectionalS, 
-    ServiceProperty, ServiceEdgeProperty>;
+inline Service add_vertex(const std::string& name, Workflow& g) {
+    auto& name_map{ g[boost::graph_bundle].map };
+    if (!name_map.count(name)) {
+        name_map[name] = boost::add_vertex(ServiceProperty{ name }, g);
+    }
+    return name_map[name];
+}
 
-using Service = Workflow::vertex_descriptor;
-using ServiceEdge = Workflow::edge_descriptor;
+inline std::pair<ServiceEdge, bool> add_edge(const std::string& name1, const std::string& name2, Workflow& g) {
+    Service u = add_vertex(name1, g);
+    Service v = add_vertex(name2, g);
+    return add_edge(u, v, g);
+}
 
 // topology, each router holds hosting info
+
+struct TopologyProperty;
+struct RouterProperty;
+struct RouterEdgeProperty;
+
+using Topology = boost::adjacency_list<
+    boost::vecS, boost::vecS, boost::undirectedS,
+    RouterProperty, RouterEdgeProperty, TopologyProperty>;
+
+using Router = Topology::vertex_descriptor;
+using RouterEdge = Topology::edge_descriptor;
+
+struct TopologyProperty {
+    std::map<std::string, Router> map{};
+};
 
 struct RouterProperty {
     std::string name{};
@@ -39,12 +80,21 @@ struct RouterEdgeProperty {
     unsigned cost{0};
 };
 
-using Topology = boost::adjacency_list<
-    boost::vecS, boost::vecS, boost::undirectedS,
-    RouterProperty, RouterEdgeProperty>;
+// i fucking love copying code copied code is my favorite flavor of code
+// really gets me off
+inline Router add_vertex(const std::string& name, Topology& g) {
+    auto& name_map{ g[boost::graph_bundle].map };
+    if (!name_map.count(name)) {
+        name_map[name] = boost::add_vertex(RouterProperty{ name }, g);
+    }
+    return name_map[name];
+}
 
-using Router = Topology::vertex_descriptor;
-using RouterEdge = Topology::edge_descriptor;
+inline std::pair<RouterEdge, bool> add_edge(const std::string& name1, const std::string& name2, Topology& g) {
+    Router u = add_vertex(name1, g);
+    Router v = add_vertex(name2, g);
+    return add_edge(u, v, g);
+}
 
 // branches
 

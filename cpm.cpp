@@ -13,14 +13,13 @@ namespace CPM {
 // interests along the path at each timestep
 unsigned 
 criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, Workflow& work) {
-    for (ServiceEdge e : iterpair(boost::edges(work))) {
-        work[e].requested = false;
-    }
-
     unsigned cpm {0};
 
+    // branch priority queue
     BranchQueue branches;
     branches.push(Branch { user, interest });
+    // already serviced interests
+    std::set<ServiceEdge> expanded{};
 
     while (!branches.empty()) {
         Branch branch = branches.top();
@@ -30,8 +29,8 @@ criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, Work
         Router rtr = branch.rtr;
         unsigned time = branch.time;
 
-        // if already requested, skip
-        if (work[intr].requested) continue;
+        // if already serviced, skip
+        if (expanded.count(intr)) continue;
 
         Service srv = boost::source(intr, work);
 
@@ -40,11 +39,11 @@ criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, Work
 
         // if hosting the service we're looking for
         if (topo[rtr].hosting.count(work[srv].name)) {
-            work[intr].requested = true;
+            expanded.insert(intr);
             // for upstream service of srv
             for (ServiceEdge e : iterpair(boost::in_edges(srv, work))) {
-                // if already requested, skip
-                if (work[e].requested) continue;
+                // if already serviced, skip
+                if (expanded.count(e)) continue;
                 branches.push(Branch { rtr, e, time });
             }
         } else {
@@ -103,6 +102,9 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
 
         if (topo[close.rtr].hosting.count(work[srv].name)) {
             // fuck you, my ass considered harmful
+            // actually though i /could/ put all that code in here but it
+            // interrupts the flow of the algorithm
+            // imo it's better to have that code at the end
             goto found;
         }
 
@@ -122,6 +124,7 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         }
     }
 
+    // TODO: lol
     throw std::runtime_error("not found lol");
 
 found:
