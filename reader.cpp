@@ -57,34 +57,28 @@ Topology topology_from_files(const char* topo_file, const char* hosting_file) {
 
     Topology topo{};
 
-    std::map<std::string, std::set<std::string>> hosting_map{};
-
-    for (const auto& host_pair : hosting_json.at("routerHosting").get_object()) {
-        std::string name{ host_pair.key() };
-        std::set<std::string> hosting{};
-
-        for (const auto& srv : host_pair.value().get_array()) {
-            hosting.insert(static_cast<std::string>(srv.get_string()));
-        }
-
-        hosting_map[name] = hosting;
-    }
-
-    std::map<std::string, Router> desc_map{};
-
     // error checking is for chumps
     for (const auto& rtr_obj : topo_json.at("router").get_array()) {
         std::string name{ rtr_obj.at("node").get_string() };
-        RouterProperty rtr_prop{ name, hosting_map[name] };
-        desc_map[name] = boost::add_vertex(rtr_prop, topo);
+        add_vertex(name, topo);
     }
 
     for (const auto& link_obj : topo_json.at("link").get_array()) {
         std::string from{ link_obj.at("from").get_string() };
         std::string to{ link_obj.at("to").get_string() };
-        // TODO: parse delay unit into value
-        RouterEdgeProperty edge_prop{ 1 };
-        boost::add_edge(desc_map[from], desc_map[to], edge_prop, topo);
+        //std::string delay{ link_obj.at("delay").get_string() };
+        RouterEdge e{ add_edge(from, to, topo).first };
+        // TODO: parse delay unit into value, hardcode 1 for now
+        topo[e].cost = 1;
+    }
+
+    for (const auto& host_pair : hosting_json.at("routerHosting").get_object()) {
+        std::string name{ host_pair.key() };
+        Router rtr{ topo[boost::graph_bundle].map.at(name) };
+
+        for (const auto& srv : host_pair.value().get_array()) {
+            topo[rtr].hosting.insert(static_cast<std::string>(srv.get_string()));
+        }
     }
 
     return topo;

@@ -12,8 +12,8 @@
 namespace CPM {
 
 // TODO: maybe not a bad idea to wrap this all in my own class 
-// probably more effort than it's worth, but the current ergonomics are kinda
-// shit
+// probably more effort than it's worth for now, but the current ergonomics
+// are kinda shit
 
 // workflow
 
@@ -21,6 +21,7 @@ struct WorkflowProperty;
 struct ServiceProperty;
 struct ServiceEdgeProperty;
 
+// TODO: workflow is modeled with data flow, should probably be interest flow
 using Workflow = boost::adjacency_list<
     boost::vecS, boost::vecS, boost::bidirectionalS, 
     ServiceProperty, ServiceEdgeProperty, WorkflowProperty>;
@@ -71,13 +72,14 @@ struct TopologyProperty {
     std::map<std::string, Router> map{};
 };
 
+// TODO: hosting should probably use descriptors over strings
 struct RouterProperty {
     std::string name{};
     std::set<std::string> hosting{};
 };
 
 struct RouterEdgeProperty {
-    unsigned cost{0};
+    unsigned cost{ 1 };
 };
 
 // i fucking love copying code copied code is my favorite flavor of code
@@ -121,8 +123,9 @@ public:
 };
 
 unsigned 
-criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, Workflow& work);
+criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
+std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
 Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);
 Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g);
 
