@@ -20,10 +20,10 @@ release: clean
 release: $(binary)
 
 $(binary): $(objects)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $^ -o $@ $(CFLAGS)
 
 $(objdir)/%.o: $(srcdir)/%.$(ext) | $(objdir)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $< -o $@ $(CFLAGS) -c
 
 include $(makefiles)
 

@@ -55,7 +55,7 @@ Topology topology_from_files(const char* topo_file, const char* hosting_file) {
         Router rtr{ topo[boost::graph_bundle].map.at(name) };
 
         for (const auto& srv : host_item.value()) {
-            topo[rtr].hosting.insert(srv);
+            topo[rtr].hosting.insert(static_cast<std::string>(srv));
         }
     }
 
