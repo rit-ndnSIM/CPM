@@ -14,6 +14,8 @@ namespace CPM {
 // TODO: maybe not a bad idea to wrap this all in my own class 
 // probably more effort than it's worth for now, but the current ergonomics
 // are kinda shit
+//
+// TODO: way too much shit in this header file
 
 // workflow
 
