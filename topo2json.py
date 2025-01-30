@@ -27,21 +27,20 @@ def parse_topo(f):
             section = line
             continue
 
-        match section:
-            case "router" | "link":
-                fields = []
-                if section == "router":
-                    fields = ["node", "city", "y", "x", "mpi-partition"]
-                elif section == "link":
-                    fields = ["from", "to", "capacity", "metric", "delay", "queue"]
+        if (section == "router" or section == "link"):
+            fields = []
+            if section == "router":
+                fields = ["node", "city", "y", "x", "mpi-partition"]
+            elif section == "link":
+                fields = ["from", "to", "capacity", "metric", "delay", "queue"]
 
-                values = line.split()
-                if len(values) != len(fields):
-                    raise ValueError(f"Expected {fields.len()} fields for section '{section}', got {values.len()}")
+            values = line.split()
+            if len(values) != len(fields):
+                raise ValueError(f"Expected {fields.len()} fields for section '{section}', got {values.len()}")
 
-                topo[section].append({field: value for field, value in zip(fields, values)})
-            case _:
-                raise ValueError(f"Unexpected line '{line}'")
+            topo[section].append({field: value for field, value in zip(fields, values)})
+        else:
+            raise ValueError(f"Unexpected line '{line}'")
 
     return topo
 
