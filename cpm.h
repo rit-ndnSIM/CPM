@@ -124,12 +124,6 @@ public:
     bool push_if_min(Branch next);
 };
 
-unsigned 
-criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
-Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
-std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
-Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);
-Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g);
 
 // helper to unwrap iterator pairs
 template <typename Iter>
@@ -145,15 +139,14 @@ public:
     Iter end() { return m_pair.second; }
 };
 
-template <typename Graph>
-void print_graph(const Graph& g) {
-    for (auto e : iterpair(boost::edges(g))) {
-        auto src = source(e, g);
-        auto tgt = target(e, g);
-        std::cout << g[src].name << " (" << src << ") -> " 
-            << g[tgt].name << " (" << tgt << ")\n";
-    }
-}
+unsigned 
+criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
+Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
+std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
+Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);
+Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g);
+void print_graph(const Workflow& g);
+void print_graph(const Topology& g);
 
 } // namespace CPM
 

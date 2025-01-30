@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
     // just grabs first interest from consumer for now
     ServiceEdge consumer_intr{ *in_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };
 
+    //print_graph(work);
+    //print_graph(topo);
 
     bool scopt{};
     if (cfg.scheme == Scheme::nesco) {

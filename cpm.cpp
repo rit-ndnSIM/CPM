@@ -89,13 +89,17 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
                     rtr_expanded.insert(br.rtr);
                     // for each hosted service
                     for (const auto& srv_name : topo[br.rtr].hosting) {
-                        Service srv { work[boost::graph_bundle].map.at(srv_name) };
-                        // for each upstream service
-                        for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
-                            // skip if already expanded
-                            if (intr_expanded.count(up)) continue;
-                            if (up == intr) continue;
-                            branches.push(Branch{ br.rtr, up, br.time });
+                        const auto& desc_map{ work[boost::graph_bundle].map };
+                        // if service in workflow
+                        if (desc_map.count(srv_name)) {
+                            Service srv { desc_map.at(srv_name) };
+                            // for each upstream service
+                            for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
+                                // skip if already expanded
+                                if (intr_expanded.count(up)) continue;
+                                if (up == intr) continue;
+                                branches.push(Branch{ br.rtr, up, br.time });
+                            }
                         }
                     }
                 }
@@ -227,6 +231,42 @@ Topology::vertex_iterator findvertex(std::string_view name, const Topology& g) {
         if (g[*vi].name == name) return vi;
     }
     return vi_end;
+}
+
+void print_graph(const Workflow& g) {
+    std::cout << "Edges:\n";
+    for (auto e : iterpair(boost::edges(g))) {
+        auto src = source(e, g);
+        auto tgt = target(e, g);
+        std::cout << g[src].name << " (" << src << ") -> " 
+            << g[tgt].name << " (" << tgt << ")\n";
+    }
+    std::cout << "Descriptor Map:\n";
+    for (const auto& [key, val] : g[boost::graph_bundle].map) {
+        std::cout << key << ": " << val << "\n";
+    }
+}
+
+void print_graph(const Topology& g) {
+    std::cout << "Edges:\n";
+    for (auto e : iterpair(boost::edges(g))) {
+        auto src = source(e, g);
+        auto tgt = target(e, g);
+        std::cout << g[src].name << " (" << src << ") -> " 
+            << g[tgt].name << " (" << tgt << ")\n";
+    }
+    std::cout << "Hosting:\n";
+    for (auto v : iterpair(boost::vertices(g))) {
+        std::cout << g[v].name << ": ";
+        for (const auto& srv_name : g[v].hosting) {
+            std::cout << srv_name << ", ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "Descriptor Map:\n";
+    for (const auto& [key, val] : g[boost::graph_bundle].map) {
+        std::cout << key << ": " << val << "\n";
+    }
 }
 
 //Scenario::Branch Scenario::nextHop(Scenario::Branch branch) {
