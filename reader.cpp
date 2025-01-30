@@ -19,7 +19,7 @@ Workflow workflow_from_file(const char* filename) {
 
     for (const auto& item1 : work_json.at("dag").items()) {
         for (const auto& item2 : item1.value().items()) {
-            add_edge(item1.key(), item2.key(), work);
+            add_edge(item2.key(), item1.key(), work);
         }
     }
 

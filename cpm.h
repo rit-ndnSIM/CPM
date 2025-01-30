@@ -25,7 +25,7 @@ struct ServiceEdgeProperty;
 
 // TODO: workflow is modeled with data flow, should probably be interest flow
 using Workflow = boost::adjacency_list<
-    boost::vecS, boost::vecS, boost::bidirectionalS, 
+    boost::vecS, boost::vecS, boost::directedS, 
     ServiceProperty, ServiceEdgeProperty, WorkflowProperty>;
 
 using Service = Workflow::vertex_descriptor;
@@ -43,6 +43,7 @@ struct ServiceProperty {
 // empty, could be filled in later
 struct ServiceEdgeProperty {};
 
+// TODO: doesn't really need to be inline
 inline Service add_vertex(const std::string& name, Workflow& g) {
     auto& name_map{ g[boost::graph_bundle].map };
     if (!name_map.count(name)) {

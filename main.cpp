@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
     Router user{ topo[boost::graph_bundle].map.at("user") };
     // just grabs first interest from consumer for now
-    ServiceEdge consumer_intr{ *in_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };
+    ServiceEdge consumer_intr{ *out_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };
 
     //print_graph(work);
     //print_graph(topo);

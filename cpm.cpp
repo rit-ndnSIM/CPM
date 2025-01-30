@@ -38,9 +38,9 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
             Service srv{ edge_queue.front() };
             edge_queue.pop();
 
-            for (ServiceEdge e : iterpair(boost::in_edges(srv, work))) {
+            for (ServiceEdge e : iterpair(boost::out_edges(srv, work))) {
                 if (edges.insert(e).second)
-                    edge_queue.push(source(e, work));
+                    edge_queue.push(target(e, work));
             }
         } while (!edge_queue.empty());
 
@@ -64,7 +64,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
 
         Router rtr = branch.rtr;
         unsigned time = branch.time;
-        Service service = boost::source(intr, work);
+        Service service = boost::target(intr, work);
 
         // priority queue gauruntees current time is minimum
         cpm = time;
@@ -73,7 +73,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
         if (topo[rtr].hosting.count(work[service].name)) {
             intr_expanded.insert(intr);
             // for upstream service of service
-            for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
+            for (ServiceEdge e : iterpair(boost::out_edges(service, work))) {
                 // skip if already expanded
                 if (intr_expanded.count(e)) continue;
                 branches.push(Branch { rtr, e, time });
@@ -94,7 +94,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
                         if (desc_map.count(srv_name)) {
                             Service srv { desc_map.at(srv_name) };
                             // for each upstream service
-                            for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
+                            for (ServiceEdge up : iterpair(boost::out_edges(srv, work))) {
                                 // skip if already expanded
                                 if (intr_expanded.count(up)) continue;
                                 if (up == intr) continue;
@@ -115,7 +115,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
 }
 
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
-    Service srv = boost::source(branch.intr, work);
+    Service srv = boost::target(branch.intr, work);
 
     BranchQueue frontier {};
     frontier.push(branch);
@@ -125,12 +125,14 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
         Branch close = frontier.top();
         frontier.pop();
 
+        // if hosting, return router
         if (topo[close.rtr].hosting.count(work[srv].name)) {
             return close;
         }
 
         expanded.insert(close.rtr);
 
+        // for each adjacent router
         for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
             Router next = target(e, topo);
 
@@ -148,7 +150,7 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
 }
 
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
-    Service srv = boost::source(branch.intr, work);
+    Service srv = boost::target(branch.intr, work);
 
     BranchQueue frontier{};
     frontier.push(branch);
@@ -160,16 +162,15 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         close = frontier.top();
         frontier.pop();
 
+        // if hosting, build path
         if (topo[close.rtr].hosting.count(work[srv].name)) {
             // fuck you, my ass considered harmful
-            // actually though i /could/ put all that code in here but it
-            // interrupts the flow of the algorithm
-            // imo it's better to have that code at the end
             goto found;
         }
 
         expanded.insert(close.rtr);
 
+        // for each adjacent router
         for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
             Router next = target(e, topo);
 
@@ -187,6 +188,7 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
     // TODO: lol
     throw std::runtime_error("not found lol");
 
+    // build path
 found:
     std::vector<Branch> path{};
     Branch current{ close };
