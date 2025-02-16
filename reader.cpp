@@ -14,7 +14,7 @@ Workflow workflow_from_file(const char* filename) {
     std::ifstream f{ filename };
     const json work_json = json::parse(f);
 
-    // error checking?
+    // TODO: error checking?
     Workflow work{};
 
     for (const auto& item1 : work_json.at("dag").items()) {
@@ -27,7 +27,7 @@ Workflow workflow_from_file(const char* filename) {
 }
 
 Topology topology_from_files(const char* topo_file, const char* hosting_file) {
-    // error checking
+    // TODO: better error checking
     std::ifstream topo_f{ topo_file };
     std::ifstream host_f{ hosting_file };
     const json topo_json = json::parse(topo_f);
@@ -35,7 +35,6 @@ Topology topology_from_files(const char* topo_file, const char* hosting_file) {
 
     Topology topo{};
 
-    // error checking is for chumps
     for (const auto& rtr_obj : topo_json.at("router")) {
         std::string name{ rtr_obj.at("node") };
         add_vertex(name, topo);

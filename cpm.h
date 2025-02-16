@@ -11,19 +11,18 @@
 
 namespace CPM {
 
-// TODO: maybe not a bad idea to wrap this all in my own class 
-// probably more effort than it's worth for now, but the current ergonomics
-// are kinda shit
-//
-// TODO: way too much shit in this header file
+// TODO: wrapper class for boost graph
+// TODO: cleanup header file, split/simplify/move to cpp
 
 // workflow
 
+// forward decs
 struct WorkflowProperty;
 struct ServiceProperty;
 struct ServiceEdgeProperty;
 
 // TODO: workflow is modeled with data flow, should probably be interest flow
+// see 'directed' branch; performance difference is negligable
 using Workflow = boost::adjacency_list<
     boost::vecS, boost::vecS, boost::bidirectionalS, 
     ServiceProperty, ServiceEdgeProperty, WorkflowProperty>;
@@ -40,22 +39,12 @@ struct ServiceProperty {
     std::string name{};
 };
 
-// empty, could be filled in later
+// empty for now
 struct ServiceEdgeProperty {};
 
-inline Service add_vertex(const std::string& name, Workflow& g) {
-    auto& name_map{ g[boost::graph_bundle].map };
-    if (!name_map.count(name)) {
-        name_map[name] = boost::add_vertex(ServiceProperty{ name }, g);
-    }
-    return name_map[name];
-}
-
-inline std::pair<ServiceEdge, bool> add_edge(const std::string& name1, const std::string& name2, Workflow& g) {
-    Service u = add_vertex(name1, g);
-    Service v = add_vertex(name2, g);
-    return add_edge(u, v, g);
-}
+// add_vertex and add_edge with string args
+Service add_vertex(const std::string& name, Workflow& g);
+std::pair<ServiceEdge, bool> add_edge(const std::string& name1, const std::string& name2, Workflow& g);
 
 // topology, each router holds hosting info
 
@@ -74,7 +63,7 @@ struct TopologyProperty {
     std::map<std::string, Router> map{};
 };
 
-// TODO: hosting should probably use descriptors over strings
+// TODO: possibly use descriptors over strings for hosting list
 struct RouterProperty {
     std::string name{};
     std::set<std::string> hosting{};
@@ -84,21 +73,9 @@ struct RouterEdgeProperty {
     unsigned cost{ 1 };
 };
 
-// i fucking love copying code copied code is my favorite flavor of code
-// really gets me off
-inline Router add_vertex(const std::string& name, Topology& g) {
-    auto& name_map{ g[boost::graph_bundle].map };
-    if (!name_map.count(name)) {
-        name_map[name] = boost::add_vertex(RouterProperty{ name }, g);
-    }
-    return name_map[name];
-}
-
-inline std::pair<RouterEdge, bool> add_edge(const std::string& name1, const std::string& name2, Topology& g) {
-    Router u = add_vertex(name1, g);
-    Router v = add_vertex(name2, g);
-    return add_edge(u, v, g);
-}
+// add_vertex and add_edge with string args
+Router add_vertex(const std::string& name, Topology& g);
+std::pair<RouterEdge, bool> add_edge(const std::string& name1, const std::string& name2, Topology& g);
 
 // branches
 
@@ -125,7 +102,7 @@ public:
 };
 
 
-// helper to unwrap iterator pairs
+// helper class to unwrap iterator pairs, for use in for loops
 template <typename Iter>
 class iterpair {
     std::pair<Iter, Iter> m_pair;

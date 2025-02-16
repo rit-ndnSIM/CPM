@@ -10,8 +10,8 @@
 
 namespace CPM {
 
-// TODO: add shortcut opt, return path to follow to closest host, generate
-// interests along the path at each timestep
+// TODO: optimize scopt code
+// TODO: split scopt and non-scopt algos?
 unsigned 
 criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, const Workflow& work, bool scopt) {
     unsigned cpm {0};
@@ -79,7 +79,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
                 branches.push(Branch { rtr, e, time });
             }
         } else {
-            // mm i love nested code can't get enough slop
+            // TODO: cleaup nested code?
             if (scopt) {
                 std::vector<Branch> path{ nearestHostPath(branch, topo, work) };
                 // for each step (router) on the path
@@ -143,8 +143,8 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
         }
     }
 
-    // TODO: lol
-    throw std::runtime_error("not found lol");
+    // TODO: real error handling
+    throw std::runtime_error("no host found");
 }
 
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
@@ -160,11 +160,8 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         close = frontier.top();
         frontier.pop();
 
+        // if found
         if (topo[close.rtr].hosting.count(work[srv].name)) {
-            // fuck you, my ass considered harmful
-            // actually though i /could/ put all that code in here but it
-            // interrupts the flow of the algorithm
-            // imo it's better to have that code at the end
             goto found;
         }
 
@@ -184,8 +181,8 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         }
     }
 
-    // TODO: lol
-    throw std::runtime_error("not found lol");
+    // TODO: real error handling
+    throw std::runtime_error("no host found");
 
 found:
     std::vector<Branch> path{};
@@ -201,6 +198,8 @@ found:
     return std::vector(path.rbegin(), path.rend());
 }
 
+// push to priority queue
+// if already present, push only if higher priority
 bool BranchQueue::push_if_min(Branch next) {
     for (auto& n : c) {
         if (n.rtr == next.rtr && n.intr == next.intr) {
@@ -216,7 +215,36 @@ bool BranchQueue::push_if_min(Branch next) {
     return true;
 }
 
-// i looove copy pasting code it feels so good
+// TODO: cleanup repeat code
+
+Service add_vertex(const std::string& name, Workflow& g) {
+    auto& name_map{ g[boost::graph_bundle].map };
+    if (!name_map.count(name)) {
+        name_map[name] = boost::add_vertex(ServiceProperty{ name }, g);
+    }
+    return name_map[name];
+}
+
+std::pair<ServiceEdge, bool> add_edge(const std::string& name1, const std::string& name2, Workflow& g) {
+    Service u = add_vertex(name1, g);
+    Service v = add_vertex(name2, g);
+    return add_edge(u, v, g);
+}
+
+Router add_vertex(const std::string& name, Topology& g) {
+    auto& name_map{ g[boost::graph_bundle].map };
+    if (!name_map.count(name)) {
+        name_map[name] = boost::add_vertex(RouterProperty{ name }, g);
+    }
+    return name_map[name];
+}
+
+std::pair<RouterEdge, bool> add_edge(const std::string& name1, const std::string& name2, Topology& g) {
+    Router u = add_vertex(name1, g);
+    Router v = add_vertex(name2, g);
+    return add_edge(u, v, g);
+}
+
 Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g) {
     Workflow::vertex_iterator vi, vi_end;
     for (boost::tie(vi, vi_end) = vertices(g); vi != vi_end; ++vi) {
@@ -268,8 +296,5 @@ void print_graph(const Topology& g) {
         std::cout << key << ": " << val << "\n";
     }
 }
-
-//Scenario::Branch Scenario::nextHop(Scenario::Branch branch) {
-//}
 
 } // namespace CPM

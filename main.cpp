@@ -74,7 +74,8 @@ int main(int argc, char *argv[])
     Workflow work{ workflow_from_file(cfg.work_file.c_str()) };
 
     Router user{ topo[boost::graph_bundle].map.at("user") };
-    // just grabs first interest from consumer for now
+    // grabs first interest from consumer, consumer should not have more than
+    // one interest
     ServiceEdge consumer_intr{ *in_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };
 
     //print_graph(work);
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
     } else if (cfg.scheme == Scheme::nescoSCOPT) {
         scopt = true;
     } else {
-        std::cerr << "good job you broke it dumbass\n";
+        std::cerr << "impossible scheme value\n";
         std::exit(1);
     }
 
