@@ -11,11 +11,12 @@
 
 namespace CPM {
 
-// TODO: maybe not a bad idea to wrap this all in my own class 
+// TODO: maybe not a bad idea to wrap this all in my own class
 // probably more effort than it's worth for now, but the current ergonomics
 // are kinda shit
 //
 // TODO: way too much shit in this header file
+// TODO: ideally use strings externally, descriptors internally
 
 // workflow
 
@@ -23,9 +24,9 @@ struct WorkflowProperty;
 struct ServiceProperty;
 struct ServiceEdgeProperty;
 
-// TODO: workflow is modeled with data flow, should probably be interest flow
+// TODO: workflow is modeled with data flow, should probably be interest flow, whatever
 using Workflow = boost::adjacency_list<
-    boost::vecS, boost::vecS, boost::bidirectionalS, 
+    boost::vecS, boost::vecS, boost::bidirectionalS,
     ServiceProperty, ServiceEdgeProperty, WorkflowProperty>;
 
 using Service = Workflow::vertex_descriptor;
@@ -84,8 +85,6 @@ struct RouterEdgeProperty {
     unsigned cost{ 1 };
 };
 
-// i fucking love copying code copied code is my favorite flavor of code
-// really gets me off
 inline Router add_vertex(const std::string& name, Topology& g) {
     auto& name_map{ g[boost::graph_bundle].map };
     if (!name_map.count(name)) {
@@ -139,7 +138,7 @@ public:
     Iter end() { return m_pair.second; }
 };
 
-unsigned 
+unsigned
 criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);

@@ -10,7 +10,11 @@ def parse_topo(f):
     topo = defaultdict(list)
     section = ""
 
+    line_num = 0
+
     for line in f.readlines():
+        line_num += 1
+
         # remove trailing whitespace
         line = line.rstrip()
 
@@ -23,24 +27,30 @@ def parse_topo(f):
             continue
 
         # if label
-        if all(c in string.ascii_letters for c in line):
+        labels = [ "router", "link" ]
+        if line in labels:
             section = line
             continue
 
-        if (section == "router" or section == "link"):
-            fields = []
-            if section == "router":
-                fields = ["node", "city", "y", "x", "mpi-partition"]
-            elif section == "link":
-                fields = ["from", "to", "capacity", "metric", "delay", "queue"]
+        if not section:
+            raise ValueError(f"line {line_num}: unexpected line in empty section")
 
-            values = line.split()
-            if len(values) != len(fields):
-                raise ValueError(f"Expected {fields.len()} fields for section '{section}', got {values.len()}")
+        fields = []
+        if section == "router":
+            num_req_fields = 1
+            fields = ["node", "comment", "y", "x", "mpi-partition"]
+        elif section == "link":
+            num_req_fields = 2
+            fields = ["from", "to", "capacity", "metric", "delay", "queue"]
 
-            topo[section].append({field: value for field, value in zip(fields, values)})
-        else:
-            raise ValueError(f"Unexpected line '{line}'")
+        values = line.split()
+        if len(values) > len(fields):
+            raise ValueError(f"line {line_num}: too many fields, maximum {len(fields)}, got {len(values)}")
+        elif len(values) < num_req_fields:
+            raise ValueError(f"line {line_num}: not enough fields, minimum {num_req_fields}, got {len(values)}")
+
+        # TODO: validate contents of fields againt field-specific grammar
+        topo[section].append({field: value for field, value in zip(fields, values)})
 
     return topo
 

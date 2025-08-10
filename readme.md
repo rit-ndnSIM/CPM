@@ -4,3 +4,7 @@ Critical path metric algorithm implemented in C++. Use `--help` for options.
 All input files should be in JSON. In order to convert a topology file to JSON,
 use `topo2json.py`, taking a list of `.txt` files and creating a file of the
 same name but with a `.json` extension.
+
+## TODO
+
+- Makefile because I don't know how to use waf, eventually replace with waf for consistency

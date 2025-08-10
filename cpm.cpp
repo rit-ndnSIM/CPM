@@ -10,9 +10,7 @@
 
 namespace CPM {
 
-// TODO: add shortcut opt, return path to follow to closest host, generate
-// interests along the path at each timestep
-unsigned 
+unsigned
 criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, const Workflow& work, bool scopt) {
     unsigned cpm {0};
 
@@ -27,7 +25,6 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
     // interest or the algorithm will exhaust the entire workflow
     // this is unecessary for no scopt, since the algorithm won't ever see
     // those edges anyway
-    // this only matters for non-sink initial interests
     if (scopt) {
         std::queue<Service> edge_queue{};
         std::set<ServiceEdge> edges{ init_intr };
@@ -44,13 +41,12 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
             }
         } while (!edge_queue.empty());
 
-        // put into set to gauruntee sort
-        // not sure if necessary
+        // not sure if necessary to put into set
         auto all_iter{ boost::edges(work) };
         std::set<ServiceEdge> all_edges(all_iter.first, all_iter.second);
 
-        std::set_difference(all_edges.begin(), all_edges.end(), 
-                edges.begin(), edges.end(), 
+        std::set_difference(all_edges.begin(), all_edges.end(),
+                edges.begin(), edges.end(),
                 std::inserter(intr_expanded, intr_expanded.end()));
     }
 
@@ -79,35 +75,36 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
                 branches.push(Branch { rtr, e, time });
             }
         } else {
-            // mm i love nested code can't get enough slop
-            if (scopt) {
-                std::vector<Branch> path{ nearestHostPath(branch, topo, work) };
-                // for each step (router) on the path
-                for (const auto& br : path) {
-                    // skip already expanded routers
-                    if (rtr_expanded.count(br.rtr)) continue;
-                    rtr_expanded.insert(br.rtr);
-                    // for each hosted service
-                    for (const auto& srv_name : topo[br.rtr].hosting) {
-                        const auto& desc_map{ work[boost::graph_bundle].map };
-                        // if service in workflow
-                        if (desc_map.count(srv_name)) {
-                            Service srv { desc_map.at(srv_name) };
-                            // for each upstream service
-                            for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
-                                // skip if already expanded
-                                if (intr_expanded.count(up)) continue;
-                                if (up == intr) continue;
-                                branches.push(Branch{ br.rtr, up, br.time });
-                            }
-                        }
+            if (!scopt) {
+                branches.push(nearestHost(branch, topo, work));
+                continue;
+            }
+
+            // scopt
+            std::vector<Branch> path{ nearestHostPath(branch, topo, work) };
+            // for each step (router) on the path
+            for (const auto& br : path) {
+                // skip already expanded routers
+                if (rtr_expanded.count(br.rtr)) continue;
+
+                rtr_expanded.insert(br.rtr);
+                // for each hosted service
+                for (const auto& srv_name : topo[br.rtr].hosting) {
+                    const auto& desc_map{ work[boost::graph_bundle].map };
+                    // skip if service not in workflow
+                    if (!desc_map.count(srv_name)) continue;
+
+                    Service srv { desc_map.at(srv_name) };
+                    // for each upstream service
+                    for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
+                        // skip if already expanded
+                        if (intr_expanded.count(up)) continue;
+                        if (up == intr) continue;
+                        branches.push(Branch{ br.rtr, up, br.time });
                     }
                 }
-                branches.push(path.back());
-            } else {
-                // traverse to nearest host, adding necessary time
-                branches.push(nearestHost(branch, topo, work));
             }
+            branches.push(path.back());
         }
     }
 
@@ -135,7 +132,7 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
             Router next = target(e, topo);
 
             // skip if already expanded
-            if (expanded.count(next)) 
+            if (expanded.count(next))
                 continue;
 
             unsigned cost = close.time + topo[e].cost;
@@ -143,8 +140,7 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
         }
     }
 
-    // TODO: lol
-    throw std::runtime_error("not found lol");
+    throw std::runtime_error("service host not found");
 }
 
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
@@ -161,10 +157,6 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         frontier.pop();
 
         if (topo[close.rtr].hosting.count(work[srv].name)) {
-            // fuck you, my ass considered harmful
-            // actually though i /could/ put all that code in here but it
-            // interrupts the flow of the algorithm
-            // imo it's better to have that code at the end
             goto found;
         }
 
@@ -174,7 +166,7 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
             Router next = target(e, topo);
 
             // skip if already expanded
-            if (expanded.count(next)) 
+            if (expanded.count(next))
                 continue;
 
             unsigned cost = close.time + topo[e].cost;
@@ -184,8 +176,7 @@ std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const W
         }
     }
 
-    // TODO: lol
-    throw std::runtime_error("not found lol");
+    throw std::runtime_error("service host not found");
 
 found:
     std::vector<Branch> path{};
@@ -216,7 +207,6 @@ bool BranchQueue::push_if_min(Branch next) {
     return true;
 }
 
-// i looove copy pasting code it feels so good
 Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g) {
     Workflow::vertex_iterator vi, vi_end;
     for (boost::tie(vi, vi_end) = vertices(g); vi != vi_end; ++vi) {
@@ -238,7 +228,7 @@ void print_graph(const Workflow& g) {
     for (auto e : iterpair(boost::edges(g))) {
         auto src = source(e, g);
         auto tgt = target(e, g);
-        std::cout << g[src].name << " (" << src << ") -> " 
+        std::cout << g[src].name << " (" << src << ") -> "
             << g[tgt].name << " (" << tgt << ")\n";
     }
     std::cout << "Descriptor Map:\n";
@@ -252,7 +242,7 @@ void print_graph(const Topology& g) {
     for (auto e : iterpair(boost::edges(g))) {
         auto src = source(e, g);
         auto tgt = target(e, g);
-        std::cout << g[src].name << " (" << src << ") -> " 
+        std::cout << g[src].name << " (" << src << ") -> "
             << g[tgt].name << " (" << tgt << ")\n";
     }
     std::cout << "Hosting:\n";
@@ -268,8 +258,5 @@ void print_graph(const Topology& g) {
         std::cout << key << ": " << val << "\n";
     }
 }
-
-//Scenario::Branch Scenario::nextHop(Scenario::Branch branch) {
-//}
 
 } // namespace CPM
