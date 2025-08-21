@@ -7,6 +7,10 @@ namespace po = boost::program_options;
 #include <iostream>
 #include <chrono>
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+using json = nlohmann::json;
+
 using namespace CPM;
 
 enum class Scheme {
@@ -21,6 +25,7 @@ struct Config {
     std::string topo_file{};
     std::string host_file{};
     Scheme scheme{};
+    std::string json_file{};
 };
 
 // TODO: args for supplying user/consumer names
@@ -33,10 +38,11 @@ Config argparse(int argc, char *argv[]) {
         po::options_description desc("options");
         desc.add_options()
             ("help", "print help message")
-            ("workflow,w", po::value<std::string>(&cfg.work_file)->required(), "workflow file")
-            ("topology,t", po::value<std::string>(&cfg.topo_file)->required(), "topology file")
-            ("hosting,h", po::value<std::string>(&cfg.host_file)->required(), "hosting file")
-            ("scheme,s", po::value<std::string>(&scheme_str)->required(), "forwarding scheme")
+            ("workflow,w", po::value<std::string>(&cfg.work_file), "workflow file")
+            ("topology,t", po::value<std::string>(&cfg.topo_file), "topology file")
+            ("hosting,h", po::value<std::string>(&cfg.host_file), "hosting file")
+            ("scheme,s", po::value<std::string>(&scheme_str), "forwarding scheme")
+            ("scenarioJSON,j", po::value<std::string>(&cfg.json_file), "scenario JSON file containing workflow, topology, hosting, etc.")
         ;
 
         po::variables_map vm;
@@ -44,18 +50,15 @@ Config argparse(int argc, char *argv[]) {
 
         if (vm.count("help")) {
             std::cout << desc << "\n";
-            std::exit(0);
+            std::exit(1);
         }
 
         po::notify(vm);
 
-        if (scheme_str == "nesco") {
-            cfg.scheme = Scheme::nesco;
-        } else if (scheme_str == "nescoSCOPT") {
-            cfg.scheme = Scheme::nescoSCOPT;
-        } else {
-            std::cerr << "unknown scheme " << scheme_str << "\n";
-            std::exit(2);
+        // We can either use the generic scenario JSON file that contains all the workflow/topology/hosting information
+        // or specify it in separate files
+        if (vm.count("scenarioJSON")) { //if json option used
+            std::cout << "JSON file: " << cfg.json_file << "\n";
         }
 
     } catch (std::exception& e) {
@@ -70,8 +73,40 @@ int main(int argc, char *argv[])
 {
     Config cfg = argparse(argc, argv);
 
-    Topology topo{ topology_from_files(cfg.topo_file.c_str(), cfg.host_file.c_str()) };
-    Workflow work{ workflow_from_file(cfg.work_file.c_str()) };
+    Topology topo;
+    Workflow work;
+
+    if (!cfg.json_file.empty()) {
+        // Scenario JSON mode
+        std::ifstream f{ cfg.json_file };
+        if (!f) {
+            std::cerr << "Error: could not open scenario JSON file " << cfg.json_file << "\n";
+            std::exit(1);
+        }
+
+        nlohmann::json j = nlohmann::json::parse(f);
+
+        // scheme
+        std::string scheme_str = j.value("prefix", "");
+        if (scheme_str == "nesco") {
+            cfg.scheme = Scheme::nesco;
+        } else if (scheme_str == "nescoSCOPT") {
+            cfg.scheme = Scheme::nescoSCOPT;
+        } else {
+            std::cerr << "unknown scheme " << scheme_str << "\n";
+            std::exit(2);
+        }
+
+        // Parse directly from JSON subtrees
+        topo = topology_from_json(j);
+        work = workflow_from_json(j);
+
+    } else {
+        // Old file-based mode
+        topo = Topology{ topology_from_files(cfg.topo_file.c_str(), cfg.host_file.c_str()) };
+        work = Workflow{ workflow_from_file(cfg.work_file.c_str()) };
+    }
+
 
     Router user{ topo[boost::graph_bundle].map.at("user") };
     // grabs first interest from consumer, consumer should not have more than
