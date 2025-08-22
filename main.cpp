@@ -69,6 +69,22 @@ Config argparse(int argc, char *argv[]) {
     return cfg;
 }
 
+std::string select_dag_for_consumer(const nlohmann::json& j) {
+    for (const auto& host_obj : j.at("routerHosting")) {
+        std::string service_name = host_obj.at("service");
+        if (service_name == "/consumer") {
+            if (host_obj.contains("dag")) {
+                return host_obj.at("dag").get<std::string>();
+            } else {
+                std::cerr << "Error: /consumer service does not specify a DAG\n";
+                std::exit(1);
+            }
+        }
+    }
+    std::cerr << "Error: /consumer service not found in routerHosting\n";
+    std::exit(1);
+}
+
 int main(int argc, char *argv[])
 {
     Config cfg = argparse(argc, argv);
@@ -99,7 +115,10 @@ int main(int argc, char *argv[])
 
         // Parse directly from JSON subtrees
         topo = topology_from_json(j);
-        work = workflow_from_json(j);
+
+        // Select DAG for /consumer
+        std::string dag_name = select_dag_for_consumer(j);
+        work = workflow_from_json(j, dag_name);
 
     } else {
         // Old file-based mode

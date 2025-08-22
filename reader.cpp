@@ -26,10 +26,10 @@ Workflow workflow_from_file(const char* filename) {
     return work;
 }
 
-Workflow workflow_from_json(const nlohmann::json& j) {
+Workflow workflow_from_json(const nlohmann::json& j, const std::string& dag_name) {
     Workflow work{};
 
-    const auto& dag = j.at("dag");
+    const auto& dag = j.at("dag").at(dag_name);
     for (const auto& [from, edges] : dag.items()) {
         for (const auto& [to, weight] : edges.items()) {
             (void)weight; // currently unused
