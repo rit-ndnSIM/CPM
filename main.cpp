@@ -127,7 +127,25 @@ int main(int argc, char *argv[])
     }
 
 
-    Router user{ topo[boost::graph_bundle].map.at("user") };
+
+    // Check for "user0" first, then fall back to "user" - randomly generated scenarios use "user0", but the old manually generated ones use "user"
+    std::string user_node_name;
+    auto& node_map = topo[boost::graph_bundle].map;
+    if (node_map.count("user0")) {
+        user_node_name = "user0";
+    } else if (node_map.count("user")) {
+        user_node_name = "user";
+    } else {
+        std::cerr << "Error: Neither 'user0' nor 'user' found in topology map.\n";
+        // Print available keys to help debugging
+        std::cerr << "Available nodes: ";
+        for(auto const& [key, val] : node_map) std::cerr << key << " ";
+        std::cerr << "\n";
+        std::exit(1);
+    }
+    Router user{ node_map.at(user_node_name) };
+    //Router user{ topo[boost::graph_bundle].map.at("user0") };
+
     // grabs first interest from consumer, consumer should not have more than
     // one interest
     ServiceEdge consumer_intr{ *in_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };

@@ -95,6 +95,7 @@ Topology topology_from_json(const nlohmann::json& j) {
         // metric field → cost
         if (link_obj.contains("metric")) {
             topo[e].cost = std::stoi(link_obj.at("metric").get<std::string>());
+            //topo[e].cost = link_obj.at("metric").get<int>();
         } else {
             topo[e].cost = 1; // default
         }
