@@ -118,8 +118,8 @@ public:
 
 unsigned 
 criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
-Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
-std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
+Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work, const std::set<std::pair<Router, Service>>& state_expanded);
+std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work, const std::set<std::pair<Router, Service>>& state_expanded);
 Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);
 Workflow::vertex_iterator findvertex(std::string_view name, const Workflow& g);
 void print_graph(const Workflow& g);

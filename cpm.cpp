@@ -19,14 +19,17 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
     // branch priority queue
     BranchQueue branches;
     branches.push(Branch { user, init_intr });
+
     // already serviced interests
     std::set<ServiceEdge> intr_expanded{};
     std::set<Router> rtr_expanded{};
 
-    // we need to pre-expand all interests irrelevant to finding the initial
-    // interest or the algorithm will exhaust the entire workflow
-    // this is unecessary for no scopt, since the algorithm won't ever see
-    // those edges anyway
+    // NEW: Track which node has already explored which request
+    //std::set<std::pair<Router, ServiceEdge>> state_expanded{};
+    std::set<std::pair<Router, Service>> state_expanded{};
+
+    // we need to pre-expand all interests irrelevant to finding the initial interest or the algorithm will exhaust the entire workflow
+    // this is unecessary for no scopt, since the algorithm won't ever see those edges anyway
     // this only matters for non-sink initial interests
     if (scopt) {
         std::queue<Service> edge_queue{};
@@ -44,7 +47,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
             }
         } while (!edge_queue.empty());
 
-        // put into set to gauruntee sort
+        // put into set to guarantee sort
         // not sure if necessary
         auto all_iter{ boost::edges(work) };
         std::set<ServiceEdge> all_edges(all_iter.first, all_iter.second);
@@ -63,11 +66,28 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
         if (intr_expanded.count(intr)) continue;
 
         Router rtr = branch.rtr;
+        
+        /*
+        // NEW: Skip if this specific chain/request has already been explored from this node
+        if (state_expanded.count({rtr, intr})) {
+            std::cout << "Skipping request for " << intr << " from " << rtr << ", interest already generated!\n";
+            continue;
+        }
+        state_expanded.insert({rtr, intr});
+        */
+
         unsigned time = branch.time;
         Service service = boost::source(intr, work);
 
-        // priority queue gauruntees current time is minimum
+        // priority queue guarantees current time is minimum
         cpm = time;
+
+        // NEW: Skip if this specific SERVICE has already been explored from this node
+        if (state_expanded.count({rtr, service})) {
+            std::cout << "Skipping request for " << service << " from " << rtr << ", interest already generated!\n";
+            continue;
+        }
+        state_expanded.insert({rtr, service});
 
         // if hosting the service we're looking for
         if (topo[rtr].hosting.count(work[service].name)) {
@@ -81,7 +101,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
         } else {
             // TODO: cleaup nested code?
             if (scopt) {
-                std::vector<Branch> path{ nearestHostPath(branch, topo, work) };
+                std::vector<Branch> path{ nearestHostPath(branch, topo, work, state_expanded) };
                 // for each step (router) on the path
                 for (const auto& br : path) {
                     // skip already expanded routers
@@ -106,7 +126,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
                 branches.push(path.back());
             } else {
                 // traverse to nearest host, adding necessary time
-                branches.push(nearestHost(branch, topo, work));
+                branches.push(nearestHost(branch, topo, work, state_expanded));
             }
         }
     }
@@ -114,7 +134,7 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
     return cpm;
 }
 
-Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
+Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work, const std::set<std::pair<Router, Service>>& state_expanded) {
     Service srv = boost::source(branch.intr, work);
 
     BranchQueue frontier {};
@@ -147,7 +167,7 @@ Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
     throw std::runtime_error("no host found");
 }
 
-std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
+std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work, const std::set<std::pair<Router, Service>>& state_expanded) {
     Service srv = boost::source(branch.intr, work);
 
     BranchQueue frontier{};
