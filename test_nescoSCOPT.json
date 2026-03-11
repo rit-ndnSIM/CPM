@@ -1,0 +1,156 @@
+{
+  "prefix": "nescoSCOPT",
+  "serviceDiscovery": 0,
+  "resourceAllocation": 0,
+  "allocationReuse": 0,
+  "scheduleCompaction": 0,
+  "startTimeOffsetSD": 0,
+  "startTimeOffsetWF": 0,
+  "simulationEndTime": 200,
+  "router": [
+    {
+      "comment": "NA",
+      "y": 0,
+      "x": 0,
+      "cs-size": 0,
+      "node": "rtr1"
+    },
+    {
+      "comment": "NA",
+      "y": 0,
+      "x": 0,
+      "cs-size": 0,
+      "node": "rtr2"
+    },
+    {
+      "comment": "NA",
+      "y": 0,
+      "x": 0,
+      "cs-size": 0,
+      "node": "sensor"
+    },
+    {
+      "comment": "NA",
+      "y": 0,
+      "x": 0,
+      "cs-size": 0,
+      "node": "rtrA"
+    },
+    {
+      "comment": "NA",
+      "y": 0,
+      "x": 0,
+      "cs-size": 0,
+      "node": "user"
+    }
+  ],
+  "link": [
+    {
+      "capacity": "10Mbps",
+      "metric": "1",
+      "delay": "10ms",
+      "queue": "100000",
+      "from": "user",
+      "to": "rtr1"
+    },
+    {
+      "capacity": "10Mbps",
+      "metric": "1",
+      "delay": "10ms",
+      "queue": "100000",
+      "from": "rtr1",
+      "to": "rtr2"
+    },
+    {
+      "capacity": "10Mbps",
+      "metric": "1",
+      "delay": "10ms",
+      "queue": "100000",
+      "from": "rtr1",
+      "to": "rtrA"
+    },
+    {
+      "capacity": "10Mbps",
+      "metric": "1",
+      "delay": "10ms",
+      "queue": "100000",
+      "from": "rtrA",
+      "to": "sensor"
+    }
+  ],
+  "services": [
+    {
+      "name": "/service1",
+      "type": "service"
+    },
+    {
+      "name": "/service2",
+      "type": "service"
+    },
+    {
+      "name": "/consumer",
+      "type": "consumer"
+    },
+    {
+      "name": "/sensor",
+      "type": "producer"
+    },
+    {
+      "name": "/aggregator",
+      "type": "service"
+    }
+  ],
+  "routerHosting": [
+    {
+      "router": "user",
+      "service": "/consumer",
+      "dag": "dag1",
+      "start": 0,
+      "end": -1
+    },
+    {
+      "router": "sensor",
+      "service": "/sensor",
+      "start": 0,
+      "end": -1
+    },
+    {
+      "router": "rtr1",
+      "service": "/service1",
+      "start": 0,
+      "end": -1,
+      "makespanNS": 0
+    },
+    {
+      "router": "rtr2",
+      "service": "/service2",
+      "start": 0,
+      "end": -1,
+      "makespanNS": 0
+    },
+    {
+      "router": "rtrA",
+      "service": "/aggregator",
+      "start": 0,
+      "end": -1,
+      "makespanNS": 0
+    }
+  ],
+  "dag": {
+    "dag1": {
+      "/sensor": {
+        "/service1": 0,
+        "/service2": 0
+      },
+      "/service1": {
+        "/aggregator": 0
+      },
+      "/service2": {
+        "/aggregator": 1
+      },
+      "/aggregator": {
+        "/consumer": 0
+      }
+    }
+  }
+}

@@ -82,12 +82,6 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
         // priority queue guarantees current time is minimum
         cpm = time;
 
-        // NEW: Skip if this specific SERVICE has already been explored from this node
-        if (state_expanded.count({rtr, service})) {
-            std::cout << "Skipping request for " << service << " from " << rtr << ", interest already generated!\n";
-            continue;
-        }
-        state_expanded.insert({rtr, service});
 
         // if hosting the service we're looking for
         if (topo[rtr].hosting.count(work[service].name)) {
@@ -101,9 +95,18 @@ criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, con
         } else {
             // TODO: cleaup nested code?
             if (scopt) {
+
                 std::vector<Branch> path{ nearestHostPath(branch, topo, work, state_expanded) };
                 // for each step (router) on the path
                 for (const auto& br : path) {
+
+                    // NEW: Skip if this specific SERVICE has already been explored from this node
+                    if (state_expanded.count({rtr, service})) {
+                        std::cout << "Skipping request for " << service << " from " << rtr << ", interest already generated!\n";
+                        continue;
+                    }
+                    state_expanded.insert({rtr, service});
+
                     // skip already expanded routers
                     if (rtr_expanded.count(br.rtr)) continue;
                     rtr_expanded.insert(br.rtr);
