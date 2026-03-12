@@ -165,12 +165,7 @@ int main(int argc, char *argv[])
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    unsigned metric = 0;
-    if (!scopt) {
-        metric = criticalPathMetric(user, consumer, topo, work);
-    } else {
-        metric = criticalPathMetricPIP(user, consumer, topo, work);
-    }
+    unsigned metric = criticalPathMetric(user, consumer, topo, work, scopt);
 
     auto finish = std::chrono::high_resolution_clock::now();
 

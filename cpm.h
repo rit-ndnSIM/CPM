@@ -124,8 +124,7 @@ public:
     Iter end() { return m_pair.second; }
 };
 
-unsigned criticalPathMetric(Router user, Service consumer, const Topology& topo, const Workflow& work);
-unsigned criticalPathMetricPIP(Router user, Service consumer, const Topology& topo, const Workflow& work);
+unsigned criticalPathMetric(Router user, Service consumer, const Topology& topo, const Workflow& work, bool scopt);
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
 Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);
