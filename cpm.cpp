@@ -22,8 +22,26 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
     std::set<std::pair<Router, Service>> expanded{};
     std::set<std::pair<Service, Service>> intr_expanded{};
 
-    // TODO: pre-expand interests for scopt
+    // pre-expand interests for scopt
     // necessary to support workflows with multiple sinks, or non-sink consumers
+    if (scopt) {
+        for (ServiceEdge e : iterpair(boost::edges(work))) {
+            intr_expanded.insert({ boost::target(e, work), boost::source(e, work) });
+        }
+
+        std::queue<Service> srv_queue{};
+
+        srv_queue.push(consumer);
+        do {
+            Service srv{ srv_queue.front() };
+            srv_queue.pop();
+
+            for (ServiceEdge e : iterpair(boost::in_edges(srv, work))) {
+                srv_queue.push(source(e, work));
+                intr_expanded.erase({ boost::target(e, work), boost::source(e, work) });
+            }
+        } while (!srv_queue.empty());
+    }
 
     while (!branches.empty()) {
         std::shared_ptr<Branch> branch{ branches.top() };
