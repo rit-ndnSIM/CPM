@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 
     // grabs first interest from consumer, consumer should not have more than
     // one interest
-    ServiceEdge consumer_intr{ *in_edges(work[boost::graph_bundle].map.at("/consumer"), work).first };
+    Service consumer{ work[boost::graph_bundle].map.at("/consumer") };
 
     //print_graph(work);
     //print_graph(topo);
@@ -164,8 +164,13 @@ int main(int argc, char *argv[])
     }
 
     auto start = std::chrono::high_resolution_clock::now();
-    
-    unsigned metric{ criticalPathMetric(user, consumer_intr, topo, work, scopt) };
+
+    unsigned metric = 0;
+    if (!scopt) {
+        metric = criticalPathMetric(user, consumer, topo, work);
+    } else {
+        metric = criticalPathMetricPIP(user, consumer, topo, work);
+    }
 
     auto finish = std::chrono::high_resolution_clock::now();
 

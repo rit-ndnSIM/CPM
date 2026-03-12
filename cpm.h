@@ -80,9 +80,18 @@ std::pair<RouterEdge, bool> add_edge(const std::string& name1, const std::string
 // branches
 
 struct Branch {
+    Branch(Router r, Service s0, Service s1)
+        : rtr(r), srv(s0), srv_prev(s1), time(0), prev(nullptr) {}
+    Branch(Router r, Service s0, Service s1, unsigned t)
+        : rtr(r), srv(s0), srv_prev(s1), time(t), prev(nullptr) {}
+    Branch(Router r, Service s0, Service s1, unsigned t, std::shared_ptr<Branch> p)
+        : rtr(r), srv(s0), srv_prev(s1), time(t), prev(p) {}
+
     Router rtr{};
-    ServiceEdge intr{};
+    Service srv{};
+    Service srv_prev{};
     unsigned time{ 0 };
+    std::shared_ptr<Branch> prev{ nullptr };
 };
 
 inline bool operator<(const Branch& l1, const Branch& l2) {
@@ -93,14 +102,13 @@ inline bool operator>(const Branch& l1, const Branch& l2) {
     return l1.time > l2.time;
 }
 
-class BranchQueue : public std::priority_queue<Branch, std::vector<Branch>, std::greater<Branch>> {
-public:
-    // if already present with lower priority (higher value), replaces it
-    // otherwise push normally
-    // returns true if pushed, false if not
-    bool push_if_min(Branch next);
-};
+inline bool operator<(std::shared_ptr<Branch> l1, std::shared_ptr<Branch> l2) {
+    return l1->time < l2->time;
+}
 
+inline bool operator>(std::shared_ptr<Branch> l1, std::shared_ptr<Branch> l2) {
+    return l1->time > l2->time;
+}
 
 // helper class to unwrap iterator pairs, for use in for loops
 template <typename Iter>
@@ -116,8 +124,8 @@ public:
     Iter end() { return m_pair.second; }
 };
 
-unsigned 
-criticalPathMetric(Router user, ServiceEdge interest, const Topology& topo, const Workflow& work, bool scopt);
+unsigned criticalPathMetric(Router user, Service consumer, const Topology& topo, const Workflow& work);
+unsigned criticalPathMetricPIP(Router user, Service consumer, const Topology& topo, const Workflow& work);
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
 Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);

@@ -7,212 +7,147 @@
 #include <set>
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 namespace CPM {
 
-// TODO: optimize scopt code
-// TODO: split scopt and non-scopt algos?
-unsigned 
-criticalPathMetric(Router user, ServiceEdge init_intr, const Topology& topo, const Workflow& work, bool scopt) {
-    unsigned cpm {0};
+unsigned
+criticalPathMetric(Router user, Service consumer, const Topology& topo, const Workflow& work) {
+    unsigned cpm{ 0 };
 
     // branch priority queue
-    BranchQueue branches;
-    branches.push(Branch { user, init_intr });
+    std::priority_queue<std::shared_ptr<Branch>, std::vector<std::shared_ptr<Branch>>, std::greater<std::shared_ptr<Branch>>> branches;
+    branches.push(std::make_shared<Branch>(user, consumer, consumer));
     // already serviced interests
-    std::set<ServiceEdge> intr_expanded{};
-    std::set<Router> rtr_expanded{};
-
-    // we need to pre-expand all interests irrelevant to finding the initial
-    // interest or the algorithm will exhaust the entire workflow
-    // this is unecessary for no scopt, since the algorithm won't ever see
-    // those edges anyway
-    // this only matters for non-sink initial interests
-    if (scopt) {
-        std::queue<Service> edge_queue{};
-        std::set<ServiceEdge> edges{ init_intr };
-
-        // traverse all upstream of init_intr
-        edge_queue.push(source(init_intr, work));
-        do {
-            Service srv{ edge_queue.front() };
-            edge_queue.pop();
-
-            for (ServiceEdge e : iterpair(boost::in_edges(srv, work))) {
-                if (edges.insert(e).second)
-                    edge_queue.push(source(e, work));
-            }
-        } while (!edge_queue.empty());
-
-        // put into set to gauruntee sort
-        // not sure if necessary
-        auto all_iter{ boost::edges(work) };
-        std::set<ServiceEdge> all_edges(all_iter.first, all_iter.second);
-
-        std::set_difference(all_edges.begin(), all_edges.end(), 
-                edges.begin(), edges.end(), 
-                std::inserter(intr_expanded, intr_expanded.end()));
-    }
+    std::set<std::pair<Router, Service>> expanded{};
+    std::set<std::pair<Service, Service>> intr_expanded{};
 
     while (!branches.empty()) {
-        Branch branch = branches.top();
+        std::shared_ptr<Branch> branch{ branches.top() };
         branches.pop();
 
-        ServiceEdge intr = branch.intr;
-        // skip if already expanded
-        if (intr_expanded.count(intr)) continue;
+        if (intr_expanded.count({ branch->srv_prev, branch->srv })) {
+            //std::cout << "Skipping interest from '" << work[branch->srv_prev].name << "' to '" << work[branch->srv].name << "' at t=" << branch->time << "\n";
+            continue;
+        }
 
-        Router rtr = branch.rtr;
-        unsigned time = branch.time;
-        Service service = boost::source(intr, work);
+        Router router = branch->rtr;
+        Service service = branch->srv;
+        unsigned time = branch->time;
 
-        // priority queue gauruntees current time is minimum
         cpm = time;
 
+        // skip if already expanded
+        if (expanded.count({ router, service })) {
+            //std::cout << "Skipping '" << topo[router].name << "' looking for '" << work[service].name << "' at t=" << time << "\n";
+            intr_expanded.insert({ branch->srv_prev, service });
+            continue;
+        }
+
+        //std::cout << "On '" << topo[router].name << "' looking for '" << work[service].name << "' at t=" << time << "\n";
+
         // if hosting the service we're looking for
-        if (topo[rtr].hosting.count(work[service].name)) {
-            intr_expanded.insert(intr);
+        if (topo[router].hosting.count(work[service].name)) {
+            //std::cout << "Found '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
+            expanded.insert({ router, service });
+            intr_expanded.insert({ branch->srv_prev, branch->srv });
             // for upstream service of service
             for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
-                // skip if already expanded
-                if (intr_expanded.count(e)) continue;
-                branches.push(Branch { rtr, e, time });
+                Service srv = boost::source(e, work);
+                branches.push(std::make_shared<Branch>(router, srv, service, time));
+            }
+
+            std::shared_ptr<Branch> br{ branch->prev };
+
+            while (br) {
+                expanded.insert({ br->rtr, service });
+                br = br->prev;
             }
         } else {
-            // TODO: cleaup nested code?
-            if (scopt) {
-                std::vector<Branch> path{ nearestHostPath(branch, topo, work) };
-                // for each step (router) on the path
-                for (const auto& br : path) {
-                    // skip already expanded routers
-                    if (rtr_expanded.count(br.rtr)) continue;
-                    rtr_expanded.insert(br.rtr);
-                    // for each hosted service
-                    for (const auto& srv_name : topo[br.rtr].hosting) {
-                        const auto& desc_map{ work[boost::graph_bundle].map };
-                        // if service in workflow
-                        if (desc_map.count(srv_name)) {
-                            Service srv { desc_map.at(srv_name) };
-                            // for each upstream service
-                            for (ServiceEdge up : iterpair(boost::in_edges(srv, work))) {
-                                // skip if already expanded
-                                if (intr_expanded.count(up)) continue;
-                                if (up == intr) continue;
-                                branches.push(Branch{ br.rtr, up, br.time });
-                            }
-                        }
-                    }
-                }
-                branches.push(path.back());
-            } else {
-                // traverse to nearest host, adding necessary time
-                branches.push(nearestHost(branch, topo, work));
+            // take a single hop for current service
+            for (RouterEdge e : iterpair(boost::out_edges(router, topo))) {
+                unsigned cost = time + topo[e].cost;
+                Router next = target(e, topo);
+                branches.push(std::make_shared<Branch>(next, service, branch->srv_prev, cost, branch));
             }
         }
+
     }
 
     return cpm;
 }
 
-Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
-    Service srv = boost::source(branch.intr, work);
+unsigned
+criticalPathMetricPIP(Router user, Service consumer, const Topology& topo, const Workflow& work) {
+    unsigned cpm{ 0 };
 
-    BranchQueue frontier {};
-    frontier.push(branch);
-    std::set<Router> expanded {};
+    // branch priority queue
+    std::priority_queue<std::shared_ptr<Branch>, std::vector<std::shared_ptr<Branch>>, std::greater<std::shared_ptr<Branch>>> branches;
+    branches.push(std::make_shared<Branch>(user, consumer, consumer));
+    // already serviced interests
+    std::set<std::pair<Router, Service>> expanded{};
+    std::set<std::pair<Service, Service>> intr_expanded{};
 
-    while (!frontier.empty()) {
-        Branch close = frontier.top();
-        frontier.pop();
+    // TODO: pre-expand interests
 
-        if (topo[close.rtr].hosting.count(work[srv].name)) {
-            return close;
+    while (!branches.empty()) {
+        std::shared_ptr<Branch> branch{ branches.top() };
+        branches.pop();
+
+        if (intr_expanded.count({ branch->srv_prev, branch->srv })) {
+            //std::cout << "Skipping interest from '" << work[branch->srv_prev].name << "' to '" << work[branch->srv].name << "' at t=" << branch->time << "\n";
+            continue;
         }
 
-        expanded.insert(close.rtr);
+        Router router = branch->rtr;
+        Service service = branch->srv;
+        unsigned time = branch->time;
 
-        for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
-            Router next = target(e, topo);
+        cpm = time;
 
-            // skip if already expanded
-            if (expanded.count(next)) 
-                continue;
-
-            unsigned cost = close.time + topo[e].cost;
-            frontier.push_if_min(Branch { next, branch.intr, cost });
-        }
-    }
-
-    // TODO: real error handling
-    throw std::runtime_error("no host found");
-}
-
-std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work) {
-    Service srv = boost::source(branch.intr, work);
-
-    BranchQueue frontier{};
-    frontier.push(branch);
-    std::set<Router> expanded{};
-    std::map<Router, Branch> prev{};
-
-    Branch close{};
-    while (!frontier.empty()) {
-        close = frontier.top();
-        frontier.pop();
-
-        // if found
-        if (topo[close.rtr].hosting.count(work[srv].name)) {
-            goto found;
+        // skip if already expanded
+        if (expanded.count({ router, service })) {
+            //std::cout << "Skipping '" << topo[router].name << "' looking for '" << work[service].name << "' requested by '" << work[branch->srv_prev].name << "' at t=" << time << "\n";
+            intr_expanded.insert({ branch->srv_prev, service });
+            continue;
         }
 
-        expanded.insert(close.rtr);
+        //std::cout << "On '" << topo[router].name << "' looking for '" << work[service].name << "' at t=" << time << "\n";
 
-        for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
-            Router next = target(e, topo);
+        // if hosting the service we're looking for
+        if (topo[router].hosting.count(work[service].name)) {
+            //std::cout << "Found '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
+            expanded.insert({ router, service });
+            intr_expanded.insert({ branch->srv_prev, branch->srv });
+            // for upstream service of service
+            for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
+                Service srv = boost::source(e, work);
+                branches.push(std::make_shared<Branch>(router, srv, service, time));
+            }
 
-            // skip if already expanded
-            if (expanded.count(next)) 
-                continue;
+            std::shared_ptr<Branch> br{ branch->prev };
 
-            unsigned cost = close.time + topo[e].cost;
-            if (frontier.push_if_min(Branch { next, branch.intr, cost })) {
-                prev[next] = close;
+            while (br) {
+                for (const auto& srv_name : topo[br->rtr].hosting) {
+                    Service srv{ work[boost::graph_bundle].map.at(srv_name) };
+                    //std::cout << "Dispatching '" << work[srv].name << "' on '" << topo[br->rtr].name << "' at t=" << br->time << "\n";
+                    branches.push(std::make_shared<Branch>(br->rtr, srv, srv, br->time));
+                }
+                expanded.insert({ br->rtr, service });
+                br = br->prev;
+            }
+        } else {
+            // take a single hop for current service
+            for (RouterEdge e : iterpair(boost::out_edges(router, topo))) {
+                unsigned cost = time + topo[e].cost;
+                Router next = target(e, topo);
+                branches.push(std::make_shared<Branch>(next, service, branch->srv_prev, cost, branch));
             }
         }
+
     }
 
-    // TODO: real error handling
-    throw std::runtime_error("no host found");
-
-found:
-    std::vector<Branch> path{};
-    Branch current{ close };
-
-    do {
-        path.push_back(current);
-        current = prev[current.rtr];
-    } while (current.rtr != branch.rtr);
-
-    path.push_back(current);
-
-    return std::vector(path.rbegin(), path.rend());
-}
-
-// push to priority queue
-// if already present, push only if higher priority
-bool BranchQueue::push_if_min(Branch next) {
-    for (auto& n : c) {
-        if (n.rtr == next.rtr && n.intr == next.intr) {
-            if (next.time < n.time) {
-                n = next;
-                std::sort_heap(c.begin(), c.end(), std::greater<Branch>());
-                return true;
-            }
-            return false;
-        }
-    }
-    this->push(next);
-    return true;
+    return cpm;
 }
 
 // TODO: cleanup repeat code
