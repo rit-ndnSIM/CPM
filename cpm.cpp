@@ -18,15 +18,18 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
     // branch priority queue
     std::priority_queue<std::shared_ptr<Branch>, std::vector<std::shared_ptr<Branch>>, std::greater<std::shared_ptr<Branch>>> branches;
     branches.push(std::make_shared<Branch>(user, consumer, consumer));
-    // already serviced interests
-    std::set<std::pair<Router, Service>> expanded{};
-    std::set<std::pair<Service, Service>> intr_expanded{};
+    // expand routers that have sent an interest which has since been serviced
+    std::set<std::pair<Router, Service>> rtr_srv_exp{};
+    // expand interests that have been fully serviced
+    std::set<std::pair<Service, Service>> intr_exp{};
+    // expand routers that have sent exploratory interests
+    std::set<std::tuple<Router, Service, Service>> rtr_intr_exp{};
 
     // pre-expand interests for scopt
     // necessary to support workflows with multiple sinks, or non-sink consumers
     if (scopt) {
         for (ServiceEdge e : iterpair(boost::edges(work))) {
-            intr_expanded.insert({ boost::target(e, work), boost::source(e, work) });
+            intr_exp.insert({ boost::target(e, work), boost::source(e, work) });
         }
 
         std::queue<Service> srv_queue{};
@@ -38,7 +41,7 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
 
             for (ServiceEdge e : iterpair(boost::in_edges(srv, work))) {
                 srv_queue.push(source(e, work));
-                intr_expanded.erase({ boost::target(e, work), boost::source(e, work) });
+                intr_exp.erase({ boost::target(e, work), boost::source(e, work) });
             }
         } while (!srv_queue.empty());
     }
@@ -47,24 +50,34 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
         std::shared_ptr<Branch> branch{ branches.top() };
         branches.pop();
 
+        Router router = branch->rtr;
+        Service service = branch->srv;
+        Service prev_service = branch->srv_prev;
+        unsigned time = branch->time;
+
         // skip exploratory branches if interest has been expanded
-        if (intr_expanded.count({ branch->srv_prev, branch->srv })) {
-            //std::cout << "Skipping interest from '" << work[branch->srv_prev].name << "' to '" << work[branch->srv].name << "' at t=" << branch->time << "\n";
+        if (intr_exp.count({ prev_service, service })) {
+            //std::cout << "Skipping serviced interest from '" << work[prev_service].name << "' to '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
             continue;
         }
 
-        Router router = branch->rtr;
-        Service service = branch->srv;
-        unsigned time = branch->time;
+        // skip router which has already sent exploratory interest
+        if (rtr_intr_exp.count({ router, prev_service, service })) {
+            //std::cout << "Skipping exploratory interest from '" << work[prev_service].name << "' to '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
+            continue;
+        }
+        // expand router sending exploratory interest
+        rtr_intr_exp.insert({ router, prev_service, service });
 
+        // exploratory interests are always dropped at or before the time true interests are serviced
         if (time > cpm)
             cpm = time;
 
         // skip branch if router has already sent interest for service
-        if (expanded.count({ router, service })) {
-            //std::cout << "Skipping '" << topo[router].name << "' looking for '" << work[service].name << "' requested by '" << work[branch->srv_prev].name << "' at t=" << time << "\n";
+        if (rtr_srv_exp.count({ router, service })) {
+            //std::cout << "Servicing interest from '" << work[prev_service].name << "' to '" << work[service].name << "' on expanded router '" << topo[router].name << "' at t=" << time << "\n";
             // expand current interest, since this router satisfies it
-            intr_expanded.insert({ branch->srv_prev, service });
+            intr_exp.insert({ prev_service, service });
             continue;
         }
 
@@ -74,8 +87,8 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
         if (topo[router].hosting.count(work[service].name)) {
             //std::cout << "Found '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
             // expand router & interest
-            expanded.insert({ router, service });
-            intr_expanded.insert({ branch->srv_prev, branch->srv });
+            rtr_srv_exp.insert({ router, service });
+            intr_exp.insert({ prev_service, branch->srv });
 
             // send interests for upstream services
             for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
@@ -94,18 +107,15 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
                         branches.push(std::make_shared<Branch>(br->rtr, srv, srv, br->time));
                     }
                 }
-                expanded.insert({ br->rtr, service });
+                rtr_srv_exp.insert({ br->rtr, service });
                 br = br->prev;
             }
         } else {
             // take a single hop for current service in every direction
-            // TODO: we backtrack here, which can generate a lot of noise
-            // the noise will be killed once the interest is found, but if that
-            // takes a long time it could be a performance problem
             for (RouterEdge e : iterpair(boost::out_edges(router, topo))) {
                 unsigned cost = time + topo[e].cost;
                 Router next = target(e, topo);
-                branches.push(std::make_shared<Branch>(next, service, branch->srv_prev, cost, branch));
+                branches.push(std::make_shared<Branch>(next, service, prev_service, cost, branch));
             }
         }
 
