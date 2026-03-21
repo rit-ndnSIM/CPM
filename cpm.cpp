@@ -84,7 +84,7 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
             }
 
             // expand path which led here, send additional interests if scopt
-            std::shared_ptr<Branch> br{ branch->prev };
+            std::shared_ptr<Branch> br{ branch };
             while (br) {
                 if (scopt) {
                     // dispatch interests for all services hosted on this router
