@@ -55,6 +55,21 @@ Config argparse(int argc, char *argv[]) {
 
         po::notify(vm);
 
+        // Map the parsed string back to the enum
+        if (vm.count("scheme")) {
+            if (scheme_str == "nesco") {
+                cfg.scheme = Scheme::nesco;
+            } else if (scheme_str == "nescoSCOPT") {
+                cfg.scheme = Scheme::nescoSCOPT;
+            } else if (scheme_str == "orchA") {
+                cfg.scheme = Scheme::orchA;
+            } else if (scheme_str == "orchB") {
+                cfg.scheme = Scheme::orchB;
+            } else {
+                throw std::runtime_error("Unknown scheme provided: " + scheme_str);
+            }
+        }
+
         // We can either use the generic scenario JSON file that contains all the workflow/topology/hosting information
         // or specify it in separate files
         if (vm.count("scenarioJSON")) { //if json option used
@@ -122,6 +137,14 @@ int main(int argc, char *argv[])
 
     } else {
         // Old file-based mode
+        if (cfg.scheme == Scheme::nesco) {
+            std::cout << "selected scheme: nesco" << "\n";
+        } else if (cfg.scheme == Scheme::nescoSCOPT) {
+            std::cout << "selected scheme: nescoSCOPT" << "\n";
+        } else {
+            std::cerr << "impossible scheme value\n";
+            std::exit(2);
+        }
         topo = Topology{ topology_from_files(cfg.topo_file.c_str(), cfg.host_file.c_str()) };
         work = Workflow{ workflow_from_file(cfg.work_file.c_str()) };
     }
