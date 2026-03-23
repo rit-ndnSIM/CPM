@@ -55,6 +55,8 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
         Service prev_service = branch->srv_prev;
         unsigned time = branch->time;
 
+        bool serviced = false;
+
         // skip exploratory branches if interest has been expanded
         if (intr_exp.count({ prev_service, service })) {
             //std::cout << "Skipping serviced interest from '" << work[prev_service].name << "' to '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
@@ -73,18 +75,17 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
         if (time > cpm)
             cpm = time;
 
-        // skip branch if router has already sent interest for service
+        //std::cout << "On '" << topo[router].name << "' looking for '" << work[service].name << "' at t=" << time << "\n";
+
+        // terminate branch if router has been expanded
         if (rtr_srv_exp.count({ router, service })) {
             //std::cout << "Servicing interest from '" << work[prev_service].name << "' to '" << work[service].name << "' on expanded router '" << topo[router].name << "' at t=" << time << "\n";
             // expand current interest, since this router satisfies it
             intr_exp.insert({ prev_service, service });
-            continue;
-        }
 
-        //std::cout << "On '" << topo[router].name << "' looking for '" << work[service].name << "' at t=" << time << "\n";
-
-        // if hosting the service we're looking for
-        if (topo[router].hosting.count(work[service].name)) {
+            serviced = true;
+        // terminate branch & send upstream interests if we find a host
+        } else if (topo[router].hosting.count(work[service].name)) {
             //std::cout << "Found '" << work[service].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
             // expand router & interest
             rtr_srv_exp.insert({ router, service });
@@ -93,23 +94,12 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
             // send interests for upstream services
             for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
                 Service srv = boost::source(e, work);
+                //std::cout << "Dispatching upstream '" << work[srv].name << "' on '" << topo[router].name << "' at t=" << time << "\n";
                 branches.push(std::make_shared<Branch>(router, srv, service, time));
             }
 
-            // expand path which led here, send additional interests if scopt
-            std::shared_ptr<Branch> br{ branch };
-            while (br) {
-                if (scopt) {
-                    // dispatch interests for all services hosted on this router
-                    for (const auto& srv_name : topo[br->rtr].hosting) {
-                        Service srv{ work[boost::graph_bundle].map.at(srv_name) };
-                        //std::cout << "Dispatching '" << work[srv].name << "' on '" << topo[br->rtr].name << "' at t=" << br->time << "\n";
-                        branches.push(std::make_shared<Branch>(br->rtr, srv, srv, br->time));
-                    }
-                }
-                rtr_srv_exp.insert({ br->rtr, service });
-                br = br->prev;
-            }
+            serviced = true;
+        // we didn't find anything, take another hop
         } else {
             // take a single hop for current service in every direction
             for (RouterEdge e : iterpair(boost::out_edges(router, topo))) {
@@ -119,6 +109,22 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
             }
         }
 
+        if (serviced) {
+            // expand path which led here, send additional interests if scopt
+            std::shared_ptr<Branch> br{ branch };
+            while (br) {
+                if (scopt) {
+                    // dispatch interests for all services hosted on this router
+                    for (const auto& srv_name : topo[br->rtr].hosting) {
+                        Service srv{ work[boost::graph_bundle].map.at(srv_name) };
+                        //std::cout << "Dispatching anticipatory '" << work[srv].name << "' on '" << topo[br->rtr].name << "' at t=" << br->time << "\n";
+                        branches.push(std::make_shared<Branch>(br->rtr, srv, srv, br->time));
+                    }
+                }
+                rtr_srv_exp.insert({ br->rtr, service });
+                br = br->prev;
+            }
+        }
     }
 
     return cpm;
