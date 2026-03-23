@@ -23,6 +23,10 @@ Workflow workflow_from_file(const char* filename) {
         }
     }
 
+    for (const auto& service : work_json.at("services")) {
+        add_vertex(service.at("name"), work);
+    }
+
     return work;
 }
 
@@ -35,6 +39,11 @@ Workflow workflow_from_json(const nlohmann::json& j, const std::string& dag_name
             (void)weight; // currently unused
             add_edge(from, to, work);
         }
+    }
+
+    const auto& services = j.at("services");
+    for (const auto& service : services) {
+        add_vertex(service.at("name"), work);
     }
 
     return work;
