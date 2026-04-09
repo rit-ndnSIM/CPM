@@ -201,10 +201,8 @@ int main(int argc, char *argv[])
         metric = criticalPathMetricOrchA(user, consumer, topo, work);
         finish = std::chrono::high_resolution_clock::now();
     } else if (cfg.scheme == Scheme::orchB) {
-        std::cerr << "not yet implemented\n";
-        std::exit(1);
         start = std::chrono::high_resolution_clock::now();
-        //metric = criticalPathMetricOrchB(user, consumer, topo, work);
+        metric = criticalPathMetricOrchB(user, consumer, topo, work);
         finish = std::chrono::high_resolution_clock::now();
     } else {
         std::cerr << "impossible scheme value\n";

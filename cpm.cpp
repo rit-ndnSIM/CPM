@@ -184,6 +184,49 @@ criticalPathMetricOrchA(Router user, Service consumer, const Topology& topo, con
     return cpm;
 }
 
+unsigned
+criticalPathMetricOrchB(Router user, Service consumer, const Topology& topo, const Workflow& work) {
+    std::priority_queue<Branch, std::vector<Branch>, std::greater<Branch>> branches;
+    unsigned cpm{ 0 };
+
+    for (Service srv : iterpair(boost::vertices(work))) {
+        if (boost::in_degree(srv, work) == 0) {
+            branches.push(Branch{ user, srv, consumer });
+        }
+    }
+
+    while (!branches.empty()) {
+        Branch branch{ branches.top() };
+        branches.pop();
+
+        Service service = branch.srv;
+        unsigned time = branch.time;
+
+        // traverse to host
+        Branch host_branch{ nearestHost(branch, topo, work) };
+
+        if (boost::in_degree(service, work) == 0) {
+            // interest for service, no upstream interests
+            time = host_branch.time;
+        } else {
+            // reflexive interest, upstream interests, service interest
+            time = time + 3 * (host_branch.time - time);
+        }
+
+        if (time > cpm)
+            cpm = time;
+
+        // have user send interests for downstream services
+        // ignore time it takes to send data back
+        for (ServiceEdge e : iterpair(boost::out_edges(service, work))) {
+            Service srv = boost::target(e, work);
+            branches.push(Branch{ user, srv, service, time });
+        }
+    }
+
+    return cpm;
+}
+
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
     Service srv = branch.srv;
 
