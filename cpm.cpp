@@ -130,6 +130,96 @@ criticalPathMetric(Router user, Service consumer, const Topology& topo, const Wo
     return cpm;
 }
 
+unsigned
+criticalPathMetricOrchA(Router user, Service consumer, const Topology& topo, const Workflow& work) {
+    std::priority_queue<Branch, std::vector<Branch>, std::greater<Branch>> branches;
+    unsigned cpm{ 0 };
+
+    for (Service srv : iterpair(boost::vertices(work))) {
+        if (boost::in_degree(srv, work) == 0) {
+            branches.push(Branch{ user, srv, consumer });
+        }
+    }
+
+    while (!branches.empty()) {
+        Branch branch{ branches.top() };
+        branches.pop();
+
+        Service service = branch.srv;
+        unsigned time = branch.time;
+
+        // traverse to host
+        Branch host_branch{ nearestHost(branch, topo, work) };
+
+        std::vector<Branch> up_branches{};
+
+        // send interests for upstream services
+        for (ServiceEdge e : iterpair(boost::in_edges(service, work))) {
+            Service srv = boost::source(e, work);
+            up_branches.push_back(nearestHost(Branch{ host_branch.rtr, srv, service, host_branch.time }, topo, work));
+        }
+        // god i hate this language
+        auto max_branch = std::max_element(up_branches.begin(), up_branches.end(),
+            [](const auto& a, const auto& b) {
+                return a.time < b.time;
+            });
+
+        if (max_branch != up_branches.end()) {
+            time = max_branch->time;
+        } else {
+            time = host_branch.time;
+        }
+
+        if (time > cpm)
+            cpm = time;
+
+        // have user send interests for downstream services
+        // ignore time it takes to send data back
+        for (ServiceEdge e : iterpair(boost::out_edges(service, work))) {
+            Service srv = boost::target(e, work);
+            branches.push(Branch{ user, srv, service, time });
+        }
+    }
+
+    return cpm;
+}
+
+Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work) {
+    Service srv = branch.srv;
+
+    std::priority_queue<Branch, std::vector<Branch>, std::greater<Branch>> frontier {};
+    frontier.push(branch);
+    std::set<Router> expanded {};
+
+    while (!frontier.empty()) {
+        Branch close = frontier.top();
+        frontier.pop();
+
+        if (topo[close.rtr].hosting.count(work[srv].name)) {
+            return close;
+        }
+
+        expanded.insert(close.rtr);
+
+        for (RouterEdge e : iterpair(boost::out_edges(close.rtr, topo))) {
+            Router next = target(e, topo);
+
+            // skip if already expanded
+            if (expanded.count(next))
+                continue;
+
+            unsigned cost = close.time + topo[e].cost;
+            frontier.push(Branch { next, branch.srv, branch.srv_prev, cost });
+        }
+    }
+
+    // TODO: real error handling
+    std::cerr << "No host found for '" << work[srv].name << "' starting from '" << topo[branch.rtr].name << "'\n";
+    throw std::runtime_error("no host found");
+}
+
+
+
 // TODO: cleanup redundant code
 
 Service add_vertex(const std::string& name, Workflow& g) {

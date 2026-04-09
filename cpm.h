@@ -125,6 +125,7 @@ public:
 };
 
 unsigned criticalPathMetric(Router user, Service consumer, const Topology& topo, const Workflow& work, bool scopt);
+unsigned criticalPathMetricOrchA(Router user, Service consumer, const Topology& topo, const Workflow& work);
 Branch nearestHost(Branch branch, const Topology& topo, const Workflow& work);
 std::vector<Branch> nearestHostPath(Branch branch, const Topology& topo, const Workflow& work);
 Topology::vertex_iterator findvertex(std::string_view name, const Topology& g);

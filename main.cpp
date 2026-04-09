@@ -123,6 +123,10 @@ int main(int argc, char *argv[])
             cfg.scheme = Scheme::nesco;
         } else if (scheme_str == "nescoSCOPT") {
             cfg.scheme = Scheme::nescoSCOPT;
+        } else if (scheme_str == "orchA") {
+            cfg.scheme = Scheme::orchA;
+        } else if (scheme_str == "orchB") {
+            cfg.scheme = Scheme::orchB;
         } else {
             std::cerr << "unknown scheme " << scheme_str << "\n";
             std::exit(2);
@@ -141,6 +145,10 @@ int main(int argc, char *argv[])
             std::cout << "selected scheme: nesco" << "\n";
         } else if (cfg.scheme == Scheme::nescoSCOPT) {
             std::cout << "selected scheme: nescoSCOPT" << "\n";
+        } else if (cfg.scheme == Scheme::orchA) {
+            std::cout << "selected scheme: orchA" << "\n";
+        } else if (cfg.scheme == Scheme::orchB) {
+            std::cout << "selected scheme: orchB" << "\n";
         } else {
             std::cerr << "impossible scheme value\n";
             std::exit(2);
@@ -176,21 +184,32 @@ int main(int argc, char *argv[])
     //print_graph(work);
     //print_graph(topo);
 
-    bool scopt{};
+    unsigned metric;
+    std::chrono::system_clock::time_point start;
+    std::chrono::system_clock::time_point finish;
+
     if (cfg.scheme == Scheme::nesco) {
-        scopt = false;
+        start = std::chrono::high_resolution_clock::now();
+        metric = criticalPathMetric(user, consumer, topo, work, false);
+        finish = std::chrono::high_resolution_clock::now();
     } else if (cfg.scheme == Scheme::nescoSCOPT) {
-        scopt = true;
+        start = std::chrono::high_resolution_clock::now();
+        metric = criticalPathMetric(user, consumer, topo, work, true);
+        finish = std::chrono::high_resolution_clock::now();
+    } else if (cfg.scheme == Scheme::orchA) {
+        start = std::chrono::high_resolution_clock::now();
+        metric = criticalPathMetricOrchA(user, consumer, topo, work);
+        finish = std::chrono::high_resolution_clock::now();
+    } else if (cfg.scheme == Scheme::orchB) {
+        std::cerr << "not yet implemented\n";
+        std::exit(1);
+        start = std::chrono::high_resolution_clock::now();
+        //metric = criticalPathMetricOrchB(user, consumer, topo, work);
+        finish = std::chrono::high_resolution_clock::now();
     } else {
         std::cerr << "impossible scheme value\n";
         std::exit(1);
     }
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    unsigned metric = criticalPathMetric(user, consumer, topo, work, scopt);
-
-    auto finish = std::chrono::high_resolution_clock::now();
 
     std::cout << "metric: " << metric << "\n";
     std::cout << "time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() << " ns\n";
